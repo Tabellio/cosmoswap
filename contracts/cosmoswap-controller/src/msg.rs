@@ -22,6 +22,12 @@ pub enum ExecuteMsg {
     CreateSwap {
         swap_info: SwapInfo,
     },
+    Receive(Cw20ReceiveMsg),
+}
+
+#[cw_serde]
+pub enum ReceiveMsg {
+    CreateSwap { swap_info: SwapInfo },
 }
 
 #[cw_serde]

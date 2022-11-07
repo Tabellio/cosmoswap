@@ -13,6 +13,9 @@ pub enum ContractError {
     #[error("Denoms cannot be the same")]
     SameDenoms {},
 
+    #[error("Invalid cw20 address")]
+    InvalidCw20Addr {},
+
     #[error("{0}")]
     Funds(#[from] FundsError),
 }

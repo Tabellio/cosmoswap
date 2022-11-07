@@ -25,7 +25,9 @@ pub fn instantiate(
 
     // TODO: Make sure the sender is cosmoswap-controller contract
 
-    check_single_coin(&info, &msg.swap_info.coin1.coin)?;
+    if msg.swap_info.coin1.is_native {
+        check_single_coin(&info, &msg.swap_info.coin1.coin)?;
+    };
 
     let config = Config { admin: info.sender };
     CONFIG.save(deps.storage, &config)?;
