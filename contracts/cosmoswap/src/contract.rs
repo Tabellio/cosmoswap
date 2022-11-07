@@ -1,3 +1,4 @@
+use cosmoswap_packages::funds::check_single_coin;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{coin, BankMsg, Coin, CosmosMsg};
@@ -24,7 +25,7 @@ pub fn instantiate(
 
     // TODO: Make sure the sender is cosmoswap-controller contract
 
-    check_funds(&info, msg.swap_info.coin1.clone())?;
+    check_single_coin(&info, &msg.swap_info.coin1.coin)?;
 
     let config = Config { admin: info.sender };
     CONFIG.save(deps.storage, &config)?;
@@ -36,8 +37,8 @@ pub fn instantiate(
     let swap = Swap {
         user1,
         user2,
-        coin1: msg.swap_info.coin1,
-        coin2: msg.swap_info.coin2,
+        coin1: msg.swap_info.coin1.coin,
+        coin2: msg.swap_info.coin2.coin,
     };
     SWAP.save(deps.storage, &swap)?;
 

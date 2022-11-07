@@ -3,7 +3,7 @@ use cosmoswap::ContractError;
 use cosmoswap_controller::msg::{
     ExecuteMsg as ControllerExecuteMsg, InstantiateMsg as ControllerInstantiateMsg,
 };
-use cosmoswap_packages::types::SwapInfo;
+use cosmoswap_packages::types::{SwapCoin, SwapInfo};
 use cosmwasm_std::{coin, Addr, Decimal, Empty, Uint128};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use std::str::FromStr;
@@ -85,8 +85,16 @@ fn test_happy_path() {
     let swap_info = SwapInfo {
         user1: USER1.to_string(),
         user2: USER2.to_string(),
-        coin1: coin(1000, DENOM1),
-        coin2: coin(5000, DENOM2),
+        coin1: SwapCoin {
+            is_native: true,
+            coin: coin(1_000, DENOM1),
+            cw20_address: None,
+        },
+        coin2: SwapCoin {
+            is_native: true,
+            coin: coin(5_000, DENOM2),
+            cw20_address: None,
+        },
     };
     // Contract1
     app.execute_contract(
@@ -95,7 +103,7 @@ fn test_happy_path() {
         &ControllerExecuteMsg::CreateSwap {
             swap_info: swap_info.clone(),
         },
-        &vec![swap_info.clone().coin1],
+        &vec![swap_info.clone().coin1.coin],
     )
     .unwrap();
     // Contract2
@@ -105,7 +113,7 @@ fn test_happy_path() {
         &ControllerExecuteMsg::CreateSwap {
             swap_info: swap_info.clone(),
         },
-        &vec![swap_info.clone().coin1],
+        &vec![swap_info.clone().coin1.coin],
     )
     .unwrap();
 
@@ -115,7 +123,7 @@ fn test_happy_path() {
         Addr::unchecked(USER2),
         Addr::unchecked("contract1"),
         &msg,
-        &vec![swap_info.clone().coin2],
+        &vec![swap_info.clone().coin2.coin],
     )
     .unwrap();
 

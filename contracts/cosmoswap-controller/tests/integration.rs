@@ -1,5 +1,6 @@
 use cosmoswap_controller::msg::{ExecuteMsg, InstantiateMsg};
 use cosmoswap_controller::ContractError;
+use cosmoswap_packages::types::SwapCoin;
 use cosmoswap_packages::types::SwapInfo;
 use cosmwasm_std::coin;
 use cosmwasm_std::Decimal;
@@ -86,8 +87,16 @@ mod execute {
             let swap_info = SwapInfo {
                 user1: USER1.to_string(),
                 user2: USER2.to_string(),
-                coin1: coin(1_000, DENOM1),
-                coin2: coin(5_000, DENOM2),
+                coin1: SwapCoin {
+                    is_native: true,
+                    coin: coin(1_000, DENOM1),
+                    cw20_address: None,
+                },
+                coin2: SwapCoin {
+                    is_native: true,
+                    coin: coin(5_000, DENOM2),
+                    cw20_address: None,
+                },
             };
             let msg = ExecuteMsg::CreateSwap { swap_info };
             app.execute_contract(
@@ -112,8 +121,16 @@ mod execute {
             let swap_info = SwapInfo {
                 user1: ADMIN.to_string(),
                 user2: USER2.to_string(),
-                coin1: coin(1_000, DENOM1),
-                coin2: coin(5_000, DENOM2),
+                coin1: SwapCoin {
+                    is_native: true,
+                    coin: coin(1_000, DENOM1),
+                    cw20_address: None,
+                },
+                coin2: SwapCoin {
+                    is_native: true,
+                    coin: coin(5_000, DENOM2),
+                    cw20_address: None,
+                },
             };
             let msg = ExecuteMsg::CreateSwap { swap_info };
 

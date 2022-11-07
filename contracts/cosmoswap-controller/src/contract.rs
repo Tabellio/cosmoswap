@@ -1,13 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
+    from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    WasmMsg,
 };
 use cw2::set_contract_version;
 
 use cosmoswap::msg::InstantiateMsg as CosmoswapInstantiateMsg;
 use cosmoswap_packages::funds::check_single_coin;
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
+use cw20::Cw20ReceiveMsg;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -126,11 +128,11 @@ fn execute_create_swap(
     let config = CONFIG.load(deps.storage)?;
     let fee_config = FEE_CONFIG.load(deps.storage)?;
 
-    if swap_info.coin1.denom == swap_info.coin2.denom {
+    if swap_info.coin1.coin.denom == swap_info.coin2.coin.denom {
         return Err(ContractError::SameDenoms {});
     }
 
-    check_single_coin(&info, &swap_info.coin1)?;
+    check_single_coin(&info, &swap_info.coin1.coin)?;
 
     let msg = WasmMsg::Instantiate {
         code_id: config.cosmoswap_code_id,

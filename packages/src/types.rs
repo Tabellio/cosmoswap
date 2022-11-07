@@ -11,8 +11,8 @@ pub struct FeeInfo {
 pub struct SwapInfo {
     pub user1: String,
     pub user2: String,
-    pub coin1: Coin,
-    pub coin2: Coin,
+    pub coin1: SwapCoin,
+    pub coin2: SwapCoin,
 }
 
 #[cw_serde]
