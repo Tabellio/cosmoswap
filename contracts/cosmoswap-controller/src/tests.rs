@@ -1,6 +1,7 @@
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::Config;
 use crate::ContractError;
+use cosmoswap_packages::types::FeeInfo;
 use cosmwasm_std::Decimal;
 use cosmwasm_std::{Addr, Empty};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
@@ -133,8 +134,6 @@ mod execute {
     }
 
     mod update_fee_config {
-        use cosmoswap_packages::types::FeeInfo;
-
         use super::*;
 
         #[test]

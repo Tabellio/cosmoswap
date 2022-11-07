@@ -288,6 +288,51 @@ mod execute {
             }
 
             #[test]
+            fn test_invalid_amount() {
+                let mut app = mock_app();
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+
+                let cw20_addr = setup_cw20_token(&mut app, USER1);
+
+                let swap_info = SwapInfo {
+                    user1: USER1.to_string(),
+                    user2: USER2.to_string(),
+                    coin1: SwapCoin {
+                        is_native: false,
+                        coin: coin(2_000, CW20_TICKER),
+                        cw20_address: Some(cw20_addr.to_string()),
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
+                };
+                let msg = ReceiveMsg::CreateSwap { swap_info };
+
+                let err = app
+                    .execute_contract(
+                        Addr::unchecked(USER1),
+                        cw20_addr.clone(),
+                        &Cw20ExecuteMsg::Send {
+                            contract: cosmoswap_controller_addr.to_string(),
+                            amount: Uint128::new(1_000),
+                            msg: to_binary(&msg).unwrap(),
+                        },
+                        &vec![],
+                    )
+                    .unwrap_err();
+                assert_eq!(
+                    err.source().unwrap().source().unwrap().to_string(),
+                    FundsError::InvalidFunds {
+                        got: "1000".to_string(),
+                        expected: "2000".to_string()
+                    }
+                    .to_string()
+                );
+            }
+
+            #[test]
             fn test_invalid_denom() {
                 let mut app = mock_app();
                 let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");

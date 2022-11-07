@@ -184,6 +184,13 @@ fn execute_receive(
                     }
                     .into());
                 };
+                if cw20_recieve_msg.amount != swap_info.coin1.coin.amount {
+                    return Err(FundsError::InvalidFunds {
+                        got: cw20_recieve_msg.amount.to_string(),
+                        expected: swap_info.coin1.coin.amount.to_string(),
+                    }
+                    .into());
+                };
             };
             if !swap_info.coin2.is_native {
                 if swap_info.coin2.cw20_address.is_none() {
@@ -197,6 +204,13 @@ fn execute_receive(
                     return Err(FundsError::InvalidDenom {
                         got: swap_info.coin2.coin.denom,
                         expected: res.symbol,
+                    }
+                    .into());
+                };
+                if cw20_recieve_msg.amount != swap_info.coin2.coin.amount {
+                    return Err(FundsError::InvalidFunds {
+                        got: cw20_recieve_msg.amount.to_string(),
+                        expected: swap_info.coin2.coin.amount.to_string(),
                     }
                     .into());
                 };
