@@ -77,7 +77,7 @@ fn proper_instantiate(app: &mut App, fee_percentage: &str) -> Addr {
     .unwrap()
 }
 
-fn setup_cw20_token(app: &mut App, minter: &str) -> Addr {
+fn setup_cw20_token(app: &mut App) -> Addr {
     let cw20_code_id = app.store_code(cw20_contract());
 
     // Create a new cw20 token
@@ -94,7 +94,7 @@ fn setup_cw20_token(app: &mut App, minter: &str) -> Addr {
     };
     app.instantiate_contract(
         cw20_code_id,
-        Addr::unchecked(minter),
+        Addr::unchecked(ADMIN),
         &msg,
         &vec![],
         "test cw20",
@@ -201,7 +201,7 @@ mod execute {
                 let mut app = mock_app();
                 let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
 
-                let cw20_addr = setup_cw20_token(&mut app, USER1);
+                let cw20_addr = setup_cw20_token(&mut app);
 
                 let cosmoswap_code_id = app.store_code(cosmoswap());
                 let msg = ExecuteMsg::UpdateConfig { cosmoswap_code_id };
@@ -251,7 +251,7 @@ mod execute {
                 let mut app = mock_app();
                 let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
 
-                let cw20_addr = setup_cw20_token(&mut app, ADMIN);
+                let cw20_addr = setup_cw20_token(&mut app);
 
                 let swap_info = SwapInfo {
                     user1: ADMIN.to_string(),
@@ -292,7 +292,7 @@ mod execute {
                 let mut app = mock_app();
                 let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
 
-                let cw20_addr = setup_cw20_token(&mut app, USER1);
+                let cw20_addr = setup_cw20_token(&mut app);
 
                 let swap_info = SwapInfo {
                     user1: USER1.to_string(),
@@ -337,7 +337,7 @@ mod execute {
                 let mut app = mock_app();
                 let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
 
-                let cw20_addr = setup_cw20_token(&mut app, USER1);
+                let cw20_addr = setup_cw20_token(&mut app);
 
                 let swap_info = SwapInfo {
                     user1: USER1.to_string(),
@@ -382,7 +382,7 @@ mod execute {
                 let mut app = mock_app();
                 let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
 
-                let cw20_addr = setup_cw20_token(&mut app, USER1);
+                let cw20_addr = setup_cw20_token(&mut app);
 
                 let swap_info = SwapInfo {
                     user1: USER1.to_string(),
