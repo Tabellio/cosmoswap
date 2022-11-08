@@ -4,7 +4,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{coin, from_binary, BankMsg, CosmosMsg, WasmMsg};
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use cw20::Cw20ReceiveMsg;
+use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use std::ops::Mul;
 
 use crate::error::ContractError;
@@ -99,20 +99,12 @@ pub fn execute_cancel(
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
     let swap = SWAP.load(deps.storage)?;
+
     if info.sender != swap.user1 {
         return Err(ContractError::Unauthorized {});
     };
 
-    LOCK.save(deps.storage, &true)?;
-
-    let msg = BankMsg::Send {
-        to_address: swap.user1.to_string(),
-        amount: vec![swap.coin1.coin.clone()],
-    };
-
-    Ok(Response::new()
-        .add_message(msg)
-        .add_attribute("action", "cancel"))
+    _cancel(deps, swap)
 }
 
 pub fn execute_receive(
@@ -135,8 +127,6 @@ pub fn execute_receive(
                 return Err(ContractError::Unauthorized {});
             };
 
-            println!("cw20_receive_msg: {:?}", cw20_receive_msg);
-
             if !swap.coin2.is_native {
                 if cw20_receive_msg.amount != swap.coin2.coin.amount {
                     return Err(FundsError::InvalidFunds {
@@ -148,6 +138,15 @@ pub fn execute_receive(
             };
 
             _accept(&deps, swap)
+        }
+        ReceiveMsg::Cancel {} => {
+            let swap = SWAP.load(deps.storage)?;
+
+            if cw20_receive_msg.sender != swap.user1 {
+                return Err(ContractError::Unauthorized {});
+            };
+
+            _cancel(deps, swap)
         }
     }
 }
@@ -176,7 +175,7 @@ fn _accept(deps: &DepsMut, swap: Swap) -> Result<Response, ContractError> {
     } else {
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: swap.coin1.cw20_address.as_ref().unwrap().to_string(),
-            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: fee_config.payment_address.to_string(),
                 amount: coin1_fee,
             })?,
@@ -184,7 +183,7 @@ fn _accept(deps: &DepsMut, swap: Swap) -> Result<Response, ContractError> {
         }));
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: swap.coin1.cw20_address.unwrap(),
-            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: swap.user2.to_string(),
                 amount: swap.coin1.coin.amount.checked_sub(coin1_fee)?,
             })?,
@@ -207,7 +206,7 @@ fn _accept(deps: &DepsMut, swap: Swap) -> Result<Response, ContractError> {
     } else {
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: swap.coin2.cw20_address.as_ref().unwrap().to_string(),
-            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: fee_config.payment_address.to_string(),
                 amount: coin2_fee,
             })?,
@@ -215,7 +214,7 @@ fn _accept(deps: &DepsMut, swap: Swap) -> Result<Response, ContractError> {
         }));
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: swap.coin2.cw20_address.unwrap(),
-            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: swap.user1.to_string(),
                 amount: swap.coin2.coin.amount.checked_sub(coin2_fee)?,
             })?,
@@ -226,6 +225,32 @@ fn _accept(deps: &DepsMut, swap: Swap) -> Result<Response, ContractError> {
     Ok(Response::new()
         .add_messages(msgs)
         .add_attribute("action", "accept"))
+}
+
+fn _cancel(deps: DepsMut, swap: Swap) -> Result<Response, ContractError> {
+    LOCK.save(deps.storage, &true)?;
+
+    let msg: CosmosMsg;
+
+    if swap.coin1.is_native {
+        msg = CosmosMsg::Bank(BankMsg::Send {
+            to_address: swap.user1.to_string(),
+            amount: vec![swap.coin1.coin.clone()],
+        });
+    } else {
+        msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: swap.coin1.cw20_address.unwrap(),
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: swap.user1.to_string(),
+                amount: swap.coin1.coin.amount,
+            })?,
+            funds: vec![],
+        })
+    }
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("action", "cancel"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

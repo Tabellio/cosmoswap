@@ -19,7 +19,7 @@ pub enum ExecuteMsg {
 #[cw_serde]
 pub enum ReceiveMsg {
     Accept {},
-    // Cancel {},
+    Cancel {},
 }
 
 #[cw_serde]

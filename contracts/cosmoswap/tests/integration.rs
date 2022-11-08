@@ -98,7 +98,7 @@ fn setup_cw20_token(app: &mut App) -> Addr {
         decimals: 6,
         initial_balances: vec![Cw20Coin {
             address: USER2.to_string(),
-            amount: Uint128::new(5_000),
+            amount: Uint128::new(10_000),
         }],
         marketing: None,
         mint: None,
@@ -219,7 +219,6 @@ mod cw20_token {
     use super::*;
 
     #[test]
-    #[ignore]
     fn test_happy_path() {
         let mut app = mock_app();
         let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
@@ -244,7 +243,7 @@ mod cw20_token {
                 cw20_address: Some(cw20_addr.to_string()),
             },
         };
-        // Contract1
+        // Contract2
         app.execute_contract(
             Addr::unchecked(USER1),
             cosmoswap_controller_addr.clone(),
@@ -254,7 +253,7 @@ mod cw20_token {
             &vec![swap_info.clone().coin1.coin],
         )
         .unwrap();
-        // Contract2
+        // Contract3
         app.execute_contract(
             Addr::unchecked(USER1),
             cosmoswap_controller_addr.clone(),
@@ -270,7 +269,7 @@ mod cw20_token {
             Addr::unchecked(USER2),
             cw20_addr.clone(),
             &Cw20ExecuteMsg::Send {
-                contract: "contract1".to_string(),
+                contract: "contract2".to_string(),
                 amount: Uint128::new(5_000),
                 msg: to_binary(&ReceiveMsg::Accept {}).unwrap(),
             },
@@ -290,7 +289,7 @@ mod cw20_token {
                 },
             )
             .unwrap();
-        assert_eq!(res.balance, Uint128::zero());
+        assert_eq!(res.balance, Uint128::new(5_000));
 
         // These are the balances after the swap
         let res: BalanceResponse = app
@@ -318,29 +317,32 @@ mod cw20_token {
                 },
             )
             .unwrap();
-        assert_eq!(res.balance, Uint128::new(50));
+        assert_eq!(res.balance, Uint128::new(250));
 
         // Cancel the second swap
         let msg = ExecuteMsg::Cancel {};
         app.execute_contract(
             Addr::unchecked(USER1),
-            Addr::unchecked("contract2"),
+            Addr::unchecked("contract3"),
             &msg,
             &vec![],
         )
         .unwrap();
 
-        let msg = ExecuteMsg::Accept {};
         let err = app
             .execute_contract(
                 Addr::unchecked(USER2),
-                Addr::unchecked("contract2"),
-                &msg,
+                cw20_addr.clone(),
+                &Cw20ExecuteMsg::Send {
+                    contract: "contract3".to_string(),
+                    amount: Uint128::new(5_000),
+                    msg: to_binary(&ReceiveMsg::Accept {}).unwrap(),
+                },
                 &vec![],
             )
             .unwrap_err();
         assert_eq!(
-            err.source().unwrap().to_string(),
+            err.source().unwrap().source().unwrap().to_string(),
             ContractError::SwapLocked {}.to_string()
         )
     }
