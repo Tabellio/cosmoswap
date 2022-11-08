@@ -1,11 +1,13 @@
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::Swap;
-use crate::ContractError;
 use cosmoswap_packages::types::SwapCoin;
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
+use cosmwasm_std::Uint128;
 use cosmwasm_std::{coin, Addr, Decimal, Empty};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use std::str::FromStr;
+
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::state::Swap;
+use crate::ContractError;
 
 const ADMIN: &str = "juno..admin";
 const USER1: &str = "juno..user1";
@@ -270,6 +272,9 @@ mod execute {
                 },
             );
 
+            let res = app.wrap().query_balance(USER1, DENOM1).unwrap();
+            assert_eq!(res.amount, Uint128::new(999_000));
+
             let msg = ExecuteMsg::Cancel {};
             app.execute_contract(
                 Addr::unchecked(USER1),
@@ -278,6 +283,9 @@ mod execute {
                 &vec![],
             )
             .unwrap();
+
+            let res = app.wrap().query_balance(USER1, DENOM1).unwrap();
+            assert_eq!(res.amount, Uint128::new(1_000_000));
 
             let msg = ExecuteMsg::Accept {};
             let err = app

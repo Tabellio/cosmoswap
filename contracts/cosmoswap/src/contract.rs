@@ -105,7 +105,14 @@ pub fn execute_cancel(
 
     LOCK.save(deps.storage, &true)?;
 
-    Ok(Response::new().add_attribute("action", "cancel"))
+    let msg = BankMsg::Send {
+        to_address: swap.user1.to_string(),
+        amount: vec![swap.coin1.coin.clone()],
+    };
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("action", "cancel"))
 }
 
 pub fn execute_receive(
