@@ -1,10 +1,13 @@
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::Swap;
-use crate::ContractError;
+use cosmoswap_packages::types::SwapCoin;
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
+use cosmwasm_std::Uint128;
 use cosmwasm_std::{coin, Addr, Decimal, Empty};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use std::str::FromStr;
+
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::state::Swap;
+use crate::ContractError;
 
 const ADMIN: &str = "juno..admin";
 const USER1: &str = "juno..user1";
@@ -52,7 +55,7 @@ fn proper_instantiate(app: &mut App, fee_info: FeeInfo, swap_info: SwapInfo) -> 
         code_id,
         Addr::unchecked(USER1),
         &msg,
-        &vec![swap_info.coin1],
+        &vec![swap_info.coin1.coin],
         "cosmoswap",
         None,
     )
@@ -75,8 +78,16 @@ mod instantiate {
             swap_info: SwapInfo {
                 user1: Addr::unchecked(USER1).to_string(),
                 user2: Addr::unchecked(USER2).to_string(),
-                coin1: coin(1_000, DENOM1),
-                coin2: coin(5_000, DENOM2),
+                coin1: SwapCoin {
+                    is_native: true,
+                    coin: coin(1_000, DENOM1),
+                    cw20_address: None,
+                },
+                coin2: SwapCoin {
+                    is_native: true,
+                    coin: coin(5_000, DENOM2),
+                    cw20_address: None,
+                },
             },
         };
         let cosmoswap_addr = app
@@ -111,8 +122,16 @@ mod execute {
                 SwapInfo {
                     user1: Addr::unchecked(USER1).to_string(),
                     user2: Addr::unchecked(USER2).to_string(),
-                    coin1: coin(1_000, DENOM1),
-                    coin2: coin(5_000, DENOM2),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
                 },
             );
 
@@ -131,8 +150,8 @@ mod execute {
                 .unwrap();
             assert_eq!(swap.user1, Addr::unchecked(USER1));
             assert_eq!(swap.user2, Addr::unchecked(USER2));
-            assert_eq!(swap.coin1, coin(1_000, DENOM1));
-            assert_eq!(swap.coin2, coin(5_000, DENOM2));
+            assert_eq!(swap.coin1.coin, coin(1_000, DENOM1));
+            assert_eq!(swap.coin2.coin, coin(5_000, DENOM2));
         }
 
         #[test]
@@ -147,8 +166,16 @@ mod execute {
                 SwapInfo {
                     user1: Addr::unchecked(USER1).to_string(),
                     user2: Addr::unchecked(USER2).to_string(),
-                    coin1: coin(1_000, DENOM1),
-                    coin2: coin(5_000, DENOM2),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
                 },
             );
 
@@ -188,8 +215,16 @@ mod execute {
                 SwapInfo {
                     user1: Addr::unchecked(USER1).to_string(),
                     user2: Addr::unchecked(ADMIN).to_string(),
-                    coin1: coin(1_000, DENOM1),
-                    coin2: coin(5_000, DENOM2),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
                 },
             );
 
@@ -224,10 +259,21 @@ mod execute {
                 SwapInfo {
                     user1: Addr::unchecked(USER1).to_string(),
                     user2: Addr::unchecked(USER2).to_string(),
-                    coin1: coin(1_000, DENOM1),
-                    coin2: coin(5_000, DENOM2),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
                 },
             );
+
+            let res = app.wrap().query_balance(USER1, DENOM1).unwrap();
+            assert_eq!(res.amount, Uint128::new(999_000));
 
             let msg = ExecuteMsg::Cancel {};
             app.execute_contract(
@@ -237,6 +283,9 @@ mod execute {
                 &vec![],
             )
             .unwrap();
+
+            let res = app.wrap().query_balance(USER1, DENOM1).unwrap();
+            assert_eq!(res.amount, Uint128::new(1_000_000));
 
             let msg = ExecuteMsg::Accept {};
             let err = app
@@ -265,8 +314,16 @@ mod execute {
                 SwapInfo {
                     user1: Addr::unchecked(USER1).to_string(),
                     user2: Addr::unchecked(USER2).to_string(),
-                    coin1: coin(1_000, DENOM1),
-                    coin2: coin(5_000, DENOM2),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
                 },
             );
 

@@ -1,16 +1,18 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
+    from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    WasmMsg,
 };
 use cw2::set_contract_version;
 
 use cosmoswap::msg::InstantiateMsg as CosmoswapInstantiateMsg;
-use cosmoswap_packages::funds::check_single_coin;
+use cosmoswap_packages::funds::{check_single_coin, FundsError};
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
+use cw20::{Cw20QueryMsg, Cw20ReceiveMsg, TokenInfoResponse};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
 use crate::state::{Config, CONFIG, FEE_CONFIG};
 
 // version info for migration info
@@ -63,7 +65,13 @@ pub fn execute(
             fee_percentage,
             fee_payment_address,
         } => execute_update_fee_config(deps, env, info, fee_percentage, fee_payment_address),
-        ExecuteMsg::CreateSwap { swap_info } => execute_create_swap(deps, env, info, swap_info),
+        ExecuteMsg::CreateSwap { swap_info } => {
+            if info.sender.to_string() != swap_info.user1 {
+                return Err(ContractError::Unauthorized {});
+            }
+            execute_create_swap(deps, env, info, swap_info)
+        }
+        ExecuteMsg::Receive(msg) => execute_receive(deps, env, info, msg),
     }
 }
 
@@ -119,18 +127,16 @@ fn execute_create_swap(
     info: MessageInfo,
     swap_info: SwapInfo,
 ) -> Result<Response, ContractError> {
-    if info.sender.to_string() != swap_info.user1 {
-        return Err(ContractError::Unauthorized {});
-    }
-
     let config = CONFIG.load(deps.storage)?;
     let fee_config = FEE_CONFIG.load(deps.storage)?;
 
-    if swap_info.coin1.denom == swap_info.coin2.denom {
+    if swap_info.coin1.coin.denom == swap_info.coin2.coin.denom {
         return Err(ContractError::SameDenoms {});
     }
 
-    check_single_coin(&info, &swap_info.coin1)?;
+    if swap_info.coin1.is_native {
+        check_single_coin(&info, &swap_info.coin1.coin)?;
+    };
 
     let msg = WasmMsg::Instantiate {
         code_id: config.cosmoswap_code_id,
@@ -146,6 +152,73 @@ fn execute_create_swap(
     Ok(Response::new()
         .add_message(msg)
         .add_attribute("action", "create_swap"))
+}
+
+fn execute_receive(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    cw20_recieve_msg: Cw20ReceiveMsg,
+) -> Result<Response, ContractError> {
+    let msg: ReceiveMsg = from_binary(&cw20_recieve_msg.msg)?;
+    match msg {
+        ReceiveMsg::CreateSwap { swap_info } => {
+            // Check if the sender is the same as the user1
+            if cw20_recieve_msg.sender != swap_info.user1 {
+                return Err(ContractError::Unauthorized {});
+            };
+
+            // Check if coins are not native and the cw20 info is correct
+            if !swap_info.coin1.is_native {
+                if swap_info.coin1.cw20_address.is_none() {
+                    return Err(ContractError::InvalidCw20Addr {});
+                };
+                let res: TokenInfoResponse = deps.querier.query_wasm_smart(
+                    swap_info.coin1.cw20_address.as_ref().unwrap(),
+                    &Cw20QueryMsg::TokenInfo {},
+                )?;
+                if res.symbol != swap_info.coin1.coin.denom {
+                    return Err(FundsError::InvalidDenom {
+                        got: swap_info.coin1.coin.denom,
+                        expected: res.symbol,
+                    }
+                    .into());
+                };
+                if cw20_recieve_msg.amount != swap_info.coin1.coin.amount {
+                    return Err(FundsError::InvalidFunds {
+                        got: cw20_recieve_msg.amount.to_string(),
+                        expected: swap_info.coin1.coin.amount.to_string(),
+                    }
+                    .into());
+                };
+            };
+            if !swap_info.coin2.is_native {
+                if swap_info.coin2.cw20_address.is_none() {
+                    return Err(ContractError::InvalidCw20Addr {});
+                };
+                let res: TokenInfoResponse = deps.querier.query_wasm_smart(
+                    swap_info.coin2.cw20_address.as_ref().unwrap(),
+                    &Cw20QueryMsg::TokenInfo {},
+                )?;
+                if res.symbol != swap_info.coin2.coin.denom {
+                    return Err(FundsError::InvalidDenom {
+                        got: swap_info.coin2.coin.denom,
+                        expected: res.symbol,
+                    }
+                    .into());
+                };
+                if cw20_recieve_msg.amount != swap_info.coin2.coin.amount {
+                    return Err(FundsError::InvalidFunds {
+                        got: cw20_recieve_msg.amount.to_string(),
+                        expected: swap_info.coin2.coin.amount.to_string(),
+                    }
+                    .into());
+                };
+            };
+
+            execute_create_swap(deps, _env, info, swap_info)
+        }
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

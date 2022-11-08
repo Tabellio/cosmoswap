@@ -2,6 +2,7 @@ use crate::state::Config;
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Decimal;
+use cw20::Cw20ReceiveMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -21,6 +22,12 @@ pub enum ExecuteMsg {
     CreateSwap {
         swap_info: SwapInfo,
     },
+    Receive(Cw20ReceiveMsg),
+}
+
+#[cw_serde]
+pub enum ReceiveMsg {
+    CreateSwap { swap_info: SwapInfo },
 }
 
 #[cw_serde]

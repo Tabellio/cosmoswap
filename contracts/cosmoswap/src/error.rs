@@ -1,3 +1,4 @@
+use cosmoswap_packages::funds::FundsError;
 use cosmwasm_std::{OverflowError, StdError};
 use thiserror::Error;
 
@@ -23,6 +24,9 @@ pub enum ContractError {
 
     #[error("Amount is not the same")]
     InvalidAmount {},
+
+    #[error("{0}")]
+    Funds(#[from] FundsError),
 
     #[error("{0}")]
     Owerflow(#[from] OverflowError),
