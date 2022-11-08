@@ -53,3 +53,4 @@ cw20 = "0.16.0"
 [dev-dependencies]
 cw-multi-test = "0.15.1"
 cosmoswap-controller = { path = "../cosmoswap-controller" }
+cw20-base = "0.16.0"

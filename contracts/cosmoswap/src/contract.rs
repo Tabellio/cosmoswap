@@ -1,13 +1,14 @@
-use cosmoswap_packages::funds::check_single_coin;
+use cosmoswap_packages::funds::{check_single_coin, FundsError};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{coin, BankMsg, Coin, CosmosMsg};
+use cosmwasm_std::{coin, from_binary, BankMsg, CosmosMsg, WasmMsg};
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
+use cw20::Cw20ReceiveMsg;
 use std::ops::Mul;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
 use crate::state::{Config, Swap, CONFIG, FEE_CONFIG, LOCK, SWAP};
 
 // version info for migration info
@@ -39,8 +40,8 @@ pub fn instantiate(
     let swap = Swap {
         user1,
         user2,
-        coin1: msg.swap_info.coin1.coin,
-        coin2: msg.swap_info.coin2.coin,
+        coin1: msg.swap_info.coin1,
+        coin2: msg.swap_info.coin2,
     };
     SWAP.save(deps.storage, &swap)?;
 
@@ -51,8 +52,8 @@ pub fn instantiate(
         .add_attribute("action", "instantiate")
         .add_attribute("user1", swap.user1)
         .add_attribute("user2", swap.user2)
-        .add_attribute("coin1", swap.coin1.to_string())
-        .add_attribute("coin2", swap.coin2.to_string()))
+        .add_attribute("coin1", swap.coin1.coin.to_string())
+        .add_attribute("coin2", swap.coin2.coin.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -65,6 +66,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Accept {} => execute_accept(deps, env, info),
         ExecuteMsg::Cancel {} => execute_cancel(deps, env, info),
+        ExecuteMsg::Receive(msg) => execute_receive(deps, env, info, msg),
     }
 }
 
@@ -79,7 +81,6 @@ pub fn execute_accept(
         return Err(ContractError::SwapLocked {});
     }
 
-    let fee_config = FEE_CONFIG.load(deps.storage)?;
     let swap = SWAP.load(deps.storage)?;
 
     // Return error if the sender is not user2
@@ -87,42 +88,9 @@ pub fn execute_accept(
         return Err(ContractError::Unauthorized {});
     };
 
-    check_funds(&info, swap.coin2.clone())?;
+    check_single_coin(&info, &swap.coin2.coin.clone())?;
 
-    // Calculate swap fees
-    let coin1_fee = swap.coin1.amount.mul(fee_config.percentage);
-    let coin2_fee = swap.coin2.amount.mul(fee_config.percentage);
-
-    let mut msgs: Vec<CosmosMsg> = vec![];
-
-    // Swap fees
-    msgs.push(CosmosMsg::Bank(BankMsg::Send {
-        to_address: fee_config.payment_address.to_string(),
-        amount: vec![
-            coin(coin1_fee.u128(), swap.coin1.denom.clone()),
-            coin(coin2_fee.u128(), swap.coin2.denom.clone()),
-        ],
-    }));
-    // User1 coin
-    msgs.push(CosmosMsg::Bank(BankMsg::Send {
-        to_address: swap.user2.to_string(),
-        amount: vec![coin(
-            swap.coin1.amount.checked_sub(coin1_fee)?.u128(),
-            swap.coin1.denom,
-        )],
-    }));
-    // User2 coin
-    msgs.push(CosmosMsg::Bank(BankMsg::Send {
-        to_address: swap.user1.to_string(),
-        amount: vec![coin(
-            swap.coin2.amount.checked_sub(coin2_fee)?.u128(),
-            swap.coin2.denom,
-        )],
-    }));
-
-    Ok(Response::new()
-        .add_messages(msgs)
-        .add_attribute("action", "accept"))
+    _accept(&deps, swap)
 }
 
 pub fn execute_cancel(
@@ -140,21 +108,117 @@ pub fn execute_cancel(
     Ok(Response::new().add_attribute("action", "cancel"))
 }
 
-fn check_funds(info: &MessageInfo, coin: Coin) -> Result<(), ContractError> {
-    // Check for funds list length
-    if info.funds.len() != 1 {
-        return Err(ContractError::FundsNotFound {});
+pub fn execute_receive(
+    deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+    cw20_receive_msg: Cw20ReceiveMsg,
+) -> Result<Response, ContractError> {
+    let msg: ReceiveMsg = from_binary(&cw20_receive_msg.msg)?;
+    match msg {
+        ReceiveMsg::Accept {} => {
+            let lock = LOCK.load(deps.storage)?;
+            if lock {
+                return Err(ContractError::SwapLocked {});
+            }
+
+            let swap = SWAP.load(deps.storage)?;
+
+            if cw20_receive_msg.sender != swap.user2 {
+                return Err(ContractError::Unauthorized {});
+            };
+
+            println!("cw20_receive_msg: {:?}", cw20_receive_msg);
+
+            if !swap.coin2.is_native {
+                if cw20_receive_msg.amount != swap.coin2.coin.amount {
+                    return Err(FundsError::InvalidFunds {
+                        got: cw20_receive_msg.amount.to_string(),
+                        expected: swap.coin2.coin.amount.to_string(),
+                    }
+                    .into());
+                };
+            };
+
+            _accept(&deps, swap)
+        }
     }
-    // Check for the exact coin
-    if let Some(funds) = info.funds.get(0) {
-        if funds.amount != coin.amount {
-            return Err(ContractError::InvalidAmount {});
-        };
-        if funds.denom != coin.denom {
-            return Err(ContractError::InvalidDenom {});
-        };
-    };
-    Ok(())
+}
+
+fn _accept(deps: &DepsMut, swap: Swap) -> Result<Response, ContractError> {
+    let fee_config = FEE_CONFIG.load(deps.storage)?;
+
+    // Calculate swap fees
+    let coin1_fee = swap.coin1.coin.amount.mul(fee_config.percentage);
+    let coin2_fee = swap.coin2.coin.amount.mul(fee_config.percentage);
+
+    let mut msgs: Vec<CosmosMsg> = vec![];
+
+    if swap.coin1.is_native {
+        msgs.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: fee_config.payment_address.to_string(),
+            amount: vec![coin(coin1_fee.u128(), swap.coin1.coin.denom.clone())],
+        }));
+        msgs.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: swap.user2.to_string(),
+            amount: vec![coin(
+                swap.coin1.coin.amount.checked_sub(coin1_fee)?.u128(),
+                swap.coin1.coin.denom,
+            )],
+        }));
+    } else {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: swap.coin1.cw20_address.as_ref().unwrap().to_string(),
+            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                recipient: fee_config.payment_address.to_string(),
+                amount: coin1_fee,
+            })?,
+            funds: vec![],
+        }));
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: swap.coin1.cw20_address.unwrap(),
+            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                recipient: swap.user2.to_string(),
+                amount: swap.coin1.coin.amount.checked_sub(coin1_fee)?,
+            })?,
+            funds: vec![],
+        }))
+    }
+
+    if swap.coin2.is_native {
+        msgs.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: fee_config.payment_address.to_string(),
+            amount: vec![coin(coin2_fee.u128(), swap.coin2.coin.denom.clone())],
+        }));
+        msgs.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: swap.user1.to_string(),
+            amount: vec![coin(
+                swap.coin2.coin.amount.checked_sub(coin2_fee)?.u128(),
+                swap.coin2.coin.denom,
+            )],
+        }));
+    } else {
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: swap.coin2.cw20_address.as_ref().unwrap().to_string(),
+            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                recipient: fee_config.payment_address.to_string(),
+                amount: coin2_fee,
+            })?,
+            funds: vec![],
+        }));
+        msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: swap.coin2.cw20_address.unwrap(),
+            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                recipient: swap.user1.to_string(),
+                amount: swap.coin2.coin.amount.checked_sub(coin2_fee)?,
+            })?,
+            funds: vec![],
+        }))
+    }
+
+    Ok(Response::new()
+        .add_messages(msgs)
+        .add_attribute("action", "accept"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

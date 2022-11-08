@@ -148,8 +148,8 @@ mod execute {
                 .unwrap();
             assert_eq!(swap.user1, Addr::unchecked(USER1));
             assert_eq!(swap.user2, Addr::unchecked(USER2));
-            assert_eq!(swap.coin1, coin(1_000, DENOM1));
-            assert_eq!(swap.coin2, coin(5_000, DENOM2));
+            assert_eq!(swap.coin1.coin, coin(1_000, DENOM1));
+            assert_eq!(swap.coin2.coin, coin(5_000, DENOM2));
         }
 
         #[test]

@@ -81,6 +81,7 @@ dependencies = [
  "cw-storage-plus 0.15.1",
  "cw2 0.15.1",
  "cw20",
+ "cw20-base",
  "schemars",
  "serde",
  "thiserror",
