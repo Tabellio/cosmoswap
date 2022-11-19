@@ -126,13 +126,17 @@ fn execute_update_fee_config(
 
 fn execute_create_swap(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     swap_info: SwapInfo,
     expiration: Expiration,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let fee_config = FEE_CONFIG.load(deps.storage)?;
+
+    if expiration.is_expired(&env.block) {
+        return Err(ContractError::InvalidExpiration {});
+    }
 
     if swap_info.coin1.coin.denom == swap_info.coin2.coin.denom {
         return Err(ContractError::SameDenoms {});
