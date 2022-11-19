@@ -30,7 +30,10 @@ pub fn instantiate(
         check_single_coin(&info, &msg.swap_info.coin1.coin)?;
     };
 
-    let config = Config { admin: info.sender };
+    let config = Config {
+        admin: info.sender,
+        expiration: msg.expiration,
+    };
     CONFIG.save(deps.storage, &config)?;
 
     FEE_CONFIG.save(deps.storage, &msg.fee_info)?;
@@ -72,9 +75,14 @@ pub fn execute(
 
 pub fn execute_accept(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.expiration.is_expired(&env.block) {
+        return Err(ContractError::SwapLocked {});
+    };
+
     // Return error if swap is locked by user1
     let lock = LOCK.load(deps.storage)?;
     if lock {
@@ -109,13 +117,18 @@ pub fn execute_cancel(
 
 pub fn execute_receive(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     cw20_receive_msg: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
     let msg: ReceiveMsg = from_binary(&cw20_receive_msg.msg)?;
     match msg {
         ReceiveMsg::Accept {} => {
+            let config = CONFIG.load(deps.storage)?;
+            if config.expiration.is_expired(&env.block) {
+                return Err(ContractError::SwapLocked {});
+            };
+
             let lock = LOCK.load(deps.storage)?;
             if lock {
                 return Err(ContractError::SwapLocked {});

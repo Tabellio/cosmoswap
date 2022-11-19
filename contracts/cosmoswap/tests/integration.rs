@@ -8,6 +8,7 @@ use cosmoswap_packages::types::{SwapCoin, SwapInfo};
 use cosmwasm_std::to_binary;
 use cosmwasm_std::{coin, Addr, Decimal, Empty, Uint128};
 use cw20::Cw20Coin;
+use cw20::Expiration;
 use cw20::{BalanceResponse, Cw20QueryMsg};
 use cw20_base::msg::{ExecuteMsg as Cw20ExecuteMsg, InstantiateMsg as Cw20InstantiateMsg};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
@@ -146,6 +147,7 @@ mod native_token {
             cosmoswap_controller_addr.clone(),
             &ControllerExecuteMsg::CreateSwap {
                 swap_info: swap_info.clone(),
+                expiration: Expiration::Never {},
             },
             &vec![swap_info.clone().coin1.coin],
         )
@@ -156,6 +158,7 @@ mod native_token {
             cosmoswap_controller_addr.clone(),
             &ControllerExecuteMsg::CreateSwap {
                 swap_info: swap_info.clone(),
+                expiration: Expiration::Never {},
             },
             &vec![swap_info.clone().coin1.coin],
         )
@@ -249,6 +252,7 @@ mod cw20_token {
             cosmoswap_controller_addr.clone(),
             &ControllerExecuteMsg::CreateSwap {
                 swap_info: swap_info.clone(),
+                expiration: Expiration::Never {},
             },
             &vec![swap_info.clone().coin1.coin],
         )
@@ -259,6 +263,7 @@ mod cw20_token {
             cosmoswap_controller_addr.clone(),
             &ControllerExecuteMsg::CreateSwap {
                 swap_info: swap_info.clone(),
+                expiration: Expiration::Never {},
             },
             &vec![swap_info.clone().coin1.coin],
         )

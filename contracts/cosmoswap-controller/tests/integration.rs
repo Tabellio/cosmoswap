@@ -9,6 +9,7 @@ use cosmwasm_std::Decimal;
 use cosmwasm_std::{to_binary, Uint128};
 use cosmwasm_std::{Addr, Empty};
 use cw20::Cw20Coin;
+use cw20::Expiration;
 use cw20_base::msg::{ExecuteMsg as Cw20ExecuteMsg, InstantiateMsg as Cw20InstantiateMsg};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use std::str::FromStr;
@@ -142,7 +143,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ExecuteMsg::CreateSwap { swap_info };
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
                 app.execute_contract(
                     Addr::unchecked(USER1),
                     cosmoswap_controller_addr.clone(),
@@ -176,7 +180,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ExecuteMsg::CreateSwap { swap_info };
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(
@@ -227,7 +234,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
                 app.execute_contract(
                     Addr::unchecked(USER1),
                     cw20_addr.clone(),
@@ -267,7 +277,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(
@@ -308,7 +321,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(
@@ -353,7 +369,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(
@@ -398,7 +417,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(

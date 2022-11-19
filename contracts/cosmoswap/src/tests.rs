@@ -2,6 +2,7 @@ use cosmoswap_packages::types::SwapCoin;
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
 use cosmwasm_std::Uint128;
 use cosmwasm_std::{coin, Addr, Decimal, Empty};
+use cw20::Expiration;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use std::str::FromStr;
 
@@ -50,6 +51,7 @@ fn proper_instantiate(app: &mut App, fee_info: FeeInfo, swap_info: SwapInfo) -> 
     let msg = InstantiateMsg {
         fee_info,
         swap_info: swap_info.clone(),
+        expiration: Expiration::Never {},
     };
     app.instantiate_contract(
         code_id,
@@ -89,6 +91,7 @@ mod instantiate {
                     cw20_address: None,
                 },
             },
+            expiration: Expiration::Never {},
         };
         let cosmoswap_addr = app
             .instantiate_contract(
