@@ -1,7 +1,7 @@
 use cosmoswap_packages::funds::{check_single_coin, FundsError};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{coin, from_binary, BankMsg, CosmosMsg, WasmMsg};
+use cosmwasm_std::{coin, from_binary, Attribute, BankMsg, CosmosMsg, WasmMsg};
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -51,12 +51,23 @@ pub fn instantiate(
     // Set swap lock to false
     LOCK.save(deps.storage, &false)?;
 
+    let mut attrs: Vec<Attribute> = vec![];
+    if let Some(cw20_addr) = swap.coin1.cw20_address {
+        attrs.push(Attribute::new("coin1_cw20_address", cw20_addr));
+    };
+    if let Some(cw20_addr) = swap.coin2.cw20_address {
+        attrs.push(Attribute::new("coin2_cw20_address", cw20_addr));
+    };
+
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("user1", swap.user1)
         .add_attribute("user2", swap.user2)
-        .add_attribute("coin1", swap.coin1.coin.to_string())
-        .add_attribute("coin2", swap.coin2.coin.to_string()))
+        .add_attribute("coin1_amount", swap.coin1.coin.amount.to_string())
+        .add_attribute("coin2_amount", swap.coin2.coin.amount.to_string())
+        .add_attribute("coin1_denom", swap.coin1.coin.denom.to_string())
+        .add_attribute("coin2_denom", swap.coin2.coin.denom.to_string())
+        .add_attributes(attrs))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

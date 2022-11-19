@@ -48,7 +48,8 @@ fn cosmoswap_controller() -> Box<dyn Contract<Empty>> {
         cosmoswap_controller::contract::execute,
         cosmoswap_controller::contract::instantiate,
         cosmoswap_controller::contract::query,
-    );
+    )
+    .with_reply(cosmoswap_controller::contract::reply);
     Box::new(contract)
 }
 

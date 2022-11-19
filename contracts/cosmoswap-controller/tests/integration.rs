@@ -39,7 +39,8 @@ fn cosmoswap_controller() -> Box<dyn Contract<Empty>> {
         cosmoswap_controller::contract::execute,
         cosmoswap_controller::contract::instantiate,
         cosmoswap_controller::contract::query,
-    );
+    )
+    .with_reply(cosmoswap_controller::contract::reply);
     Box::new(contract)
 }
 
@@ -290,6 +291,8 @@ mod execute {
         }
 
         mod cw20_token {
+            use cw20::{BalanceResponse, Cw20QueryMsg};
+
             use super::*;
 
             #[test]
@@ -343,6 +346,17 @@ mod execute {
                 assert_eq!(res.code_id, 3);
                 assert_eq!(res.creator, cosmoswap_controller_addr);
                 assert_eq!(res.admin, None);
+
+                let res: BalanceResponse = app
+                    .wrap()
+                    .query_wasm_smart(
+                        cw20_addr,
+                        &Cw20QueryMsg::Balance {
+                            address: "contract2".to_string(),
+                        },
+                    )
+                    .unwrap();
+                assert_eq!(res.balance, Uint128::new(1_000));
             }
 
             #[test]

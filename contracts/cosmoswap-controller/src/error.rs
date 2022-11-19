@@ -10,6 +10,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Error while instantiating swap contract")]
+    SwapInstantiateError {},
+
     #[error("Denoms cannot be the same")]
     SameDenoms {},
 

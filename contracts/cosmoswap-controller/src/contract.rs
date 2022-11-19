@@ -1,15 +1,17 @@
+use std::str::FromStr;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    WasmMsg,
+    from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, ReplyOn,
+    Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 
 use cosmoswap::msg::InstantiateMsg as CosmoswapInstantiateMsg;
 use cosmoswap_packages::funds::{check_single_coin, FundsError};
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
-use cw20::{Cw20QueryMsg, Cw20ReceiveMsg, Expiration, TokenInfoResponse};
+use cw20::{Cw20ExecuteMsg, Cw20QueryMsg, Cw20ReceiveMsg, Expiration, TokenInfoResponse};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
@@ -18,6 +20,8 @@ use crate::state::{Config, CONFIG, FEE_CONFIG};
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cosmoswap-controller";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+const INSTANTIATE_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -146,20 +150,33 @@ fn execute_create_swap(
         check_single_coin(&info, &swap_info.coin1.coin)?;
     };
 
-    let msg = WasmMsg::Instantiate {
+    let wasm_msg = WasmMsg::Instantiate {
         code_id: config.cosmoswap_code_id,
         msg: to_binary(&CosmoswapInstantiateMsg {
             fee_info: fee_config,
-            swap_info,
+            swap_info: swap_info.clone(),
             expiration,
         })?,
-        funds: info.funds,
+        funds: info.funds.clone(),
         admin: None,
         label: "Cosmoswap Contract".to_string(),
     };
 
+    let msg = match swap_info.coin1.is_native {
+        true => {
+            check_single_coin(&info, &swap_info.coin1.coin)?;
+            SubMsg::new(wasm_msg)
+        }
+        false => SubMsg {
+            msg: wasm_msg.into(),
+            id: INSTANTIATE_REPLY_ID,
+            gas_limit: None,
+            reply_on: ReplyOn::Success,
+        },
+    };
+
     Ok(Response::new()
-        .add_message(msg)
+        .add_submessage(msg)
         .add_attribute("action", "create_swap"))
 }
 
@@ -242,4 +259,55 @@ fn query_config(deps: Deps, _env: Env) -> StdResult<Config> {
 fn query_fee_config(deps: Deps, _env: Env) -> StdResult<FeeInfo> {
     let fee_config = FEE_CONFIG.load(deps.storage)?;
     Ok(fee_config)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+    if msg.id != INSTANTIATE_REPLY_ID {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    handle_instantiate_reply(deps, msg)
+}
+
+fn handle_instantiate_reply(_deps: DepsMut, msg: Reply) -> Result<Response, ContractError> {
+    let res = msg.result.into_result();
+    if res.is_err() {
+        return Err(ContractError::SwapInstantiateError {});
+    };
+
+    let sub_msg_response = res.unwrap();
+
+    let mut contract_addr = String::from("");
+    let mut coin1_cw20_addr = String::from("");
+    let mut amount = Uint128::zero();
+
+    sub_msg_response.events.iter().for_each(|e| {
+        if e.ty == "wasm" {
+            e.attributes.iter().for_each(|attr| {
+                if attr.key == "_contract_addr" {
+                    contract_addr = attr.value.clone();
+                };
+                if attr.key == "coin1_cw20_address" {
+                    coin1_cw20_addr = attr.value.clone();
+                };
+                if attr.key == "coin1_amount" {
+                    amount = Uint128::from_str(&attr.value).unwrap();
+                };
+            });
+        }
+    });
+
+    let msg = WasmMsg::Execute {
+        contract_addr: coin1_cw20_addr,
+        msg: to_binary(&Cw20ExecuteMsg::Transfer {
+            recipient: contract_addr,
+            amount,
+        })?,
+        funds: vec![],
+    };
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("action", "cosmoswap_instantiate_reply"))
 }
