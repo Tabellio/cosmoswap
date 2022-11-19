@@ -46,12 +46,17 @@ fn cosmoswap() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-fn proper_instantiate(app: &mut App, fee_info: FeeInfo, swap_info: SwapInfo) -> Addr {
+fn proper_instantiate(
+    app: &mut App,
+    fee_info: FeeInfo,
+    swap_info: SwapInfo,
+    expiration: Expiration,
+) -> Addr {
     let code_id = app.store_code(cosmoswap());
     let msg = InstantiateMsg {
         fee_info,
         swap_info: swap_info.clone(),
-        expiration: Expiration::Never {},
+        expiration,
     };
     app.instantiate_contract(
         code_id,
@@ -136,6 +141,7 @@ mod execute {
                         cw20_address: None,
                     },
                 },
+                Expiration::Never {},
             );
 
             let msg = ExecuteMsg::Accept {};
@@ -155,6 +161,70 @@ mod execute {
             assert_eq!(swap.user2, Addr::unchecked(USER2));
             assert_eq!(swap.coin1.coin, coin(1_000, DENOM1));
             assert_eq!(swap.coin2.coin, coin(5_000, DENOM2));
+
+            // Creating swap with expiration
+            let expiration_height = app.block_info().height.checked_add(100).unwrap();
+            let cosmoswap_addr = proper_instantiate(
+                &mut app,
+                FeeInfo {
+                    percentage: Decimal::from_str("0.05").unwrap(),
+                    payment_address: Addr::unchecked(ADMIN),
+                },
+                SwapInfo {
+                    user1: Addr::unchecked(USER1).to_string(),
+                    user2: Addr::unchecked(USER2).to_string(),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
+                },
+                Expiration::AtHeight(expiration_height),
+            );
+            app.execute_contract(
+                Addr::unchecked(USER2),
+                cosmoswap_addr.clone(),
+                &ExecuteMsg::Accept {},
+                &vec![coin(5_000, DENOM2)],
+            )
+            .unwrap();
+
+            // Creating swap with expiration
+            let expiration_time = app.block_info().time.plus_seconds(10);
+            let cosmoswap_addr = proper_instantiate(
+                &mut app,
+                FeeInfo {
+                    percentage: Decimal::from_str("0.05").unwrap(),
+                    payment_address: Addr::unchecked(ADMIN),
+                },
+                SwapInfo {
+                    user1: Addr::unchecked(USER1).to_string(),
+                    user2: Addr::unchecked(USER2).to_string(),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
+                },
+                Expiration::AtTime(expiration_time),
+            );
+            app.execute_contract(
+                Addr::unchecked(USER2),
+                cosmoswap_addr.clone(),
+                &ExecuteMsg::Accept {},
+                &vec![coin(5_000, DENOM2)],
+            )
+            .unwrap();
         }
 
         #[test]
@@ -180,6 +250,7 @@ mod execute {
                         cw20_address: None,
                     },
                 },
+                Expiration::Never {},
             );
 
             let msg = ExecuteMsg::Cancel {};
@@ -229,6 +300,7 @@ mod execute {
                         cw20_address: None,
                     },
                 },
+                Expiration::Never {},
             );
 
             let msg = ExecuteMsg::Accept {};
@@ -243,6 +315,86 @@ mod execute {
             assert_eq!(
                 err.source().unwrap().to_string(),
                 ContractError::Unauthorized {}.to_string()
+            );
+        }
+
+        #[test]
+        fn test_expired_swap() {
+            let mut app = mock_app();
+
+            let new_expiration_height = Expiration::AtHeight(10);
+            let new_expiration_time = Expiration::AtTime(app.block_info().time.plus_seconds(10));
+
+            let cosmoswap_addr = proper_instantiate(
+                &mut app,
+                FeeInfo {
+                    percentage: Decimal::from_str("0.05").unwrap(),
+                    payment_address: Addr::unchecked(ADMIN),
+                },
+                SwapInfo {
+                    user1: Addr::unchecked(USER1).to_string(),
+                    user2: Addr::unchecked(USER2).to_string(),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
+                },
+                new_expiration_height,
+            );
+            app.update_block(|block| block.height = block.height.checked_add(15).unwrap());
+            let err = app
+                .execute_contract(
+                    Addr::unchecked(USER2),
+                    cosmoswap_addr.clone(),
+                    &ExecuteMsg::Accept {},
+                    &vec![coin(5_000, DENOM2)],
+                )
+                .unwrap_err();
+            assert_eq!(
+                err.source().unwrap().to_string(),
+                ContractError::SwapLocked {}.to_string()
+            );
+
+            let cosmoswap_addr = proper_instantiate(
+                &mut app,
+                FeeInfo {
+                    percentage: Decimal::from_str("0.05").unwrap(),
+                    payment_address: Addr::unchecked(ADMIN),
+                },
+                SwapInfo {
+                    user1: Addr::unchecked(USER1).to_string(),
+                    user2: Addr::unchecked(USER2).to_string(),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
+                },
+                new_expiration_time,
+            );
+            app.update_block(|block| block.time = block.time.plus_seconds(15));
+            let err = app
+                .execute_contract(
+                    Addr::unchecked(USER2),
+                    cosmoswap_addr.clone(),
+                    &ExecuteMsg::Accept {},
+                    &vec![coin(5_000, DENOM2)],
+                )
+                .unwrap_err();
+            assert_eq!(
+                err.source().unwrap().to_string(),
+                ContractError::SwapLocked {}.to_string()
             );
         }
     }
@@ -273,6 +425,7 @@ mod execute {
                         cw20_address: None,
                     },
                 },
+                Expiration::Never {},
             );
 
             let res = app.wrap().query_balance(USER1, DENOM1).unwrap();
@@ -328,6 +481,7 @@ mod execute {
                         cw20_address: None,
                     },
                 },
+                Expiration::Never {},
             );
 
             let msg = ExecuteMsg::Cancel {};
