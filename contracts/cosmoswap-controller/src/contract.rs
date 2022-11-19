@@ -219,13 +219,6 @@ fn execute_receive(
                     }
                     .into());
                 };
-                if cw20_recieve_msg.amount != swap_info.coin2.coin.amount {
-                    return Err(FundsError::InvalidFunds {
-                        got: cw20_recieve_msg.amount.to_string(),
-                        expected: swap_info.coin2.coin.amount.to_string(),
-                    }
-                    .into());
-                };
             };
 
             execute_create_swap(deps, _env, info, swap_info, expiration)
