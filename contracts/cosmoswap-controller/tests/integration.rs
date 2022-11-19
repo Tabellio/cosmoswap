@@ -9,6 +9,7 @@ use cosmwasm_std::Decimal;
 use cosmwasm_std::{to_binary, Uint128};
 use cosmwasm_std::{Addr, Empty};
 use cw20::Cw20Coin;
+use cw20::Expiration;
 use cw20_base::msg::{ExecuteMsg as Cw20ExecuteMsg, InstantiateMsg as Cw20InstantiateMsg};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use std::str::FromStr;
@@ -142,7 +143,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ExecuteMsg::CreateSwap { swap_info };
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info: swap_info.clone(),
+                    expiration: Expiration::Never {},
+                };
                 app.execute_contract(
                     Addr::unchecked(USER1),
                     cosmoswap_controller_addr.clone(),
@@ -155,6 +159,38 @@ mod execute {
                 assert_eq!(res.code_id, 2);
                 assert_eq!(res.creator, cosmoswap_controller_addr);
                 assert_eq!(res.admin, None);
+
+                // Creating swap with expiration
+                // Changing block time
+                // app.update_block(|block| block.time = block.time.plus_seconds(10));
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info: swap_info.clone(),
+                    expiration: Expiration::AtTime(app.block_info().time.plus_seconds(5)),
+                };
+                app.execute_contract(
+                    Addr::unchecked(USER1),
+                    cosmoswap_controller_addr.clone(),
+                    &msg,
+                    &vec![coin(1_000, DENOM1)],
+                )
+                .unwrap();
+
+                // Creating swap with expiration
+                // Changing block height
+                // app.update_block(|block| block.height = block.height.checked_add(10).unwrap());
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::AtHeight(
+                        app.block_info().height.checked_add(5).unwrap(),
+                    ),
+                };
+                app.execute_contract(
+                    Addr::unchecked(USER1),
+                    cosmoswap_controller_addr.clone(),
+                    &msg,
+                    &vec![coin(1_000, DENOM1)],
+                )
+                .unwrap();
             }
 
             #[test]
@@ -176,7 +212,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ExecuteMsg::CreateSwap { swap_info };
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(
@@ -189,6 +228,63 @@ mod execute {
                 assert_eq!(
                     err.source().unwrap().to_string(),
                     ContractError::Unauthorized {}.to_string()
+                );
+            }
+
+            #[test]
+            fn test_invalid_expiration() {
+                let mut app = mock_app();
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+
+                let swap_info = SwapInfo {
+                    user1: USER1.to_string(),
+                    user2: USER2.to_string(),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
+                };
+
+                app.update_block(|block| block.height = block.height.checked_add(10).unwrap());
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info: swap_info.clone(),
+                    expiration: Expiration::AtHeight(1),
+                };
+                let err = app
+                    .execute_contract(
+                        Addr::unchecked(USER1),
+                        cosmoswap_controller_addr.clone(),
+                        &msg,
+                        &vec![coin(1_000, DENOM1)],
+                    )
+                    .unwrap_err();
+                assert_eq!(
+                    err.source().unwrap().to_string(),
+                    ContractError::InvalidExpiration {}.to_string()
+                );
+
+                app.update_block(|block| block.time = block.time.plus_seconds(10));
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::AtTime(app.block_info().time.minus_seconds(9)),
+                };
+                let err = app
+                    .execute_contract(
+                        Addr::unchecked(USER1),
+                        cosmoswap_controller_addr.clone(),
+                        &msg,
+                        &vec![coin(1_000, DENOM1)],
+                    )
+                    .unwrap_err();
+                assert_eq!(
+                    err.source().unwrap().to_string(),
+                    ContractError::InvalidExpiration {}.to_string()
                 );
             }
         }
@@ -227,7 +323,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
                 app.execute_contract(
                     Addr::unchecked(USER1),
                     cw20_addr.clone(),
@@ -267,7 +366,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(
@@ -308,7 +410,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(
@@ -353,7 +458,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(
@@ -398,7 +506,10 @@ mod execute {
                         cw20_address: None,
                     },
                 };
-                let msg = ReceiveMsg::CreateSwap { swap_info };
+                let msg = ReceiveMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
 
                 let err = app
                     .execute_contract(

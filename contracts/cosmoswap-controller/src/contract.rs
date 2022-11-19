@@ -9,7 +9,7 @@ use cw2::set_contract_version;
 use cosmoswap::msg::InstantiateMsg as CosmoswapInstantiateMsg;
 use cosmoswap_packages::funds::{check_single_coin, FundsError};
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
-use cw20::{Cw20QueryMsg, Cw20ReceiveMsg, TokenInfoResponse};
+use cw20::{Cw20QueryMsg, Cw20ReceiveMsg, Expiration, TokenInfoResponse};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
@@ -65,11 +65,14 @@ pub fn execute(
             fee_percentage,
             fee_payment_address,
         } => execute_update_fee_config(deps, env, info, fee_percentage, fee_payment_address),
-        ExecuteMsg::CreateSwap { swap_info } => {
+        ExecuteMsg::CreateSwap {
+            swap_info,
+            expiration,
+        } => {
             if info.sender.to_string() != swap_info.user1 {
                 return Err(ContractError::Unauthorized {});
             }
-            execute_create_swap(deps, env, info, swap_info)
+            execute_create_swap(deps, env, info, swap_info, expiration)
         }
         ExecuteMsg::Receive(msg) => execute_receive(deps, env, info, msg),
     }
@@ -123,12 +126,17 @@ fn execute_update_fee_config(
 
 fn execute_create_swap(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     swap_info: SwapInfo,
+    expiration: Expiration,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let fee_config = FEE_CONFIG.load(deps.storage)?;
+
+    if expiration.is_expired(&env.block) {
+        return Err(ContractError::InvalidExpiration {});
+    }
 
     if swap_info.coin1.coin.denom == swap_info.coin2.coin.denom {
         return Err(ContractError::SameDenoms {});
@@ -143,6 +151,7 @@ fn execute_create_swap(
         msg: to_binary(&CosmoswapInstantiateMsg {
             fee_info: fee_config,
             swap_info,
+            expiration,
         })?,
         funds: info.funds,
         admin: None,
@@ -162,7 +171,10 @@ fn execute_receive(
 ) -> Result<Response, ContractError> {
     let msg: ReceiveMsg = from_binary(&cw20_recieve_msg.msg)?;
     match msg {
-        ReceiveMsg::CreateSwap { swap_info } => {
+        ReceiveMsg::CreateSwap {
+            swap_info,
+            expiration,
+        } => {
             // Check if the sender is the same as the user1
             if cw20_recieve_msg.sender != swap_info.user1 {
                 return Err(ContractError::Unauthorized {});
@@ -216,7 +228,7 @@ fn execute_receive(
                 };
             };
 
-            execute_create_swap(deps, _env, info, swap_info)
+            execute_create_swap(deps, _env, info, swap_info, expiration)
         }
     }
 }

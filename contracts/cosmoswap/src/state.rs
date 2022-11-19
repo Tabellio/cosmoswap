@@ -1,11 +1,13 @@
 use cosmoswap_packages::types::{FeeInfo, SwapCoin};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
+use cw20::Expiration;
 use cw_storage_plus::Item;
 
 #[cw_serde]
 pub struct Config {
     pub admin: Addr,
+    pub expiration: Expiration,
 }
 pub const CONFIG: Item<Config> = Item::new("config");
 

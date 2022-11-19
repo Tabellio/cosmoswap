@@ -1,12 +1,13 @@
 use crate::state::Swap;
 use cosmoswap_packages::types::{FeeInfo, SwapInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cw20::Cw20ReceiveMsg;
+use cw20::{Cw20ReceiveMsg, Expiration};
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub fee_info: FeeInfo,
     pub swap_info: SwapInfo,
+    pub expiration: Expiration,
 }
 
 #[cw_serde]

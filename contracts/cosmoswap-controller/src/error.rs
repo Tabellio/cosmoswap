@@ -16,6 +16,9 @@ pub enum ContractError {
     #[error("Invalid cw20 address")]
     InvalidCw20Addr {},
 
+    #[error("Invalid expiration time")]
+    InvalidExpiration {},
+
     #[error("{0}")]
     Funds(#[from] FundsError),
 }
