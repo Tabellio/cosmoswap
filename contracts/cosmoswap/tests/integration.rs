@@ -62,9 +62,10 @@ fn cw20_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-fn proper_instantiate(app: &mut App, fee_percentage: &str) -> Addr {
+fn proper_instantiate(app: &mut App, cosmoswap_code_id: u64, fee_percentage: &str) -> Addr {
     let cosmoswap_controller_code_id = app.store_code(cosmoswap_controller());
     let msg = ControllerInstantiateMsg {
+        cosmoswap_code_id,
         fee_percentage: Decimal::from_str(fee_percentage).unwrap(),
         fee_payment_address: Addr::unchecked(ADMIN).to_string(),
     };
@@ -77,17 +78,6 @@ fn proper_instantiate(app: &mut App, fee_percentage: &str) -> Addr {
         None,
     )
     .unwrap()
-}
-
-fn update_cosmoswap_code_id(app: &mut App, cosmoswap_controller_addr: Addr) {
-    let cosmoswap_code_id = app.store_code(cosmoswap());
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        cosmoswap_controller_addr,
-        &ControllerExecuteMsg::UpdateConfig { cosmoswap_code_id },
-        &vec![],
-    )
-    .unwrap();
 }
 
 fn setup_cw20_token(app: &mut App) -> Addr {
@@ -122,10 +112,8 @@ mod native_token {
     #[test]
     fn test_happy_path() {
         let mut app = mock_app();
-        let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
-
-        // Upload cosmoswap code and update controller
-        update_cosmoswap_code_id(&mut app, cosmoswap_controller_addr.clone());
+        let cosmoswap_code_id = app.store_code(cosmoswap());
+        let cosmoswap_controller_addr = proper_instantiate(&mut app, cosmoswap_code_id, "0.05");
 
         // Create swap
         let swap_info = SwapInfo {
@@ -225,12 +213,10 @@ mod cw20_token {
     #[test]
     fn test_happy_path() {
         let mut app = mock_app();
-        let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+        let cosmoswap_code_id = app.store_code(cosmoswap());
+        let cosmoswap_controller_addr = proper_instantiate(&mut app, cosmoswap_code_id, "0.05");
 
         let cw20_addr = setup_cw20_token(&mut app);
-
-        // Upload cosmoswap code and update controller
-        update_cosmoswap_code_id(&mut app, cosmoswap_controller_addr.clone());
 
         // Create swap
         let swap_info = SwapInfo {

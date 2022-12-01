@@ -6,6 +6,7 @@ use cw20::{Cw20ReceiveMsg, Expiration};
 
 #[cw_serde]
 pub struct InstantiateMsg {
+    pub cosmoswap_code_id: u64,
     pub fee_percentage: Decimal,
     pub fee_payment_address: String,
 }

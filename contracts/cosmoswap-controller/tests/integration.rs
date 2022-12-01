@@ -62,9 +62,10 @@ fn cw20_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-fn proper_instantiate(app: &mut App, fee_percentage: &str) -> Addr {
+fn proper_instantiate(app: &mut App, cosmoswap_code_id: u64, fee_percentage: &str) -> Addr {
     let cosmoswap_controller_code_id = app.store_code(cosmoswap_controller());
     let msg = InstantiateMsg {
+        cosmoswap_code_id,
         fee_percentage: Decimal::from_str(fee_percentage).unwrap(),
         fee_payment_address: Addr::unchecked(ADMIN).to_string(),
     };
@@ -117,18 +118,9 @@ mod execute {
             #[test]
             fn test_happy_path() {
                 let mut app = mock_app();
-                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
-
-                // Update cosmoswap code id
                 let cosmoswap_code_id = app.store_code(cosmoswap());
-                let msg = ExecuteMsg::UpdateConfig { cosmoswap_code_id };
-                app.execute_contract(
-                    Addr::unchecked(ADMIN),
-                    cosmoswap_controller_addr.clone(),
-                    &msg,
-                    &vec![],
-                )
-                .unwrap();
+                let cosmoswap_controller_addr =
+                    proper_instantiate(&mut app, cosmoswap_code_id, "0.05");
 
                 let swap_info = SwapInfo {
                     user1: USER1.to_string(),
@@ -157,7 +149,7 @@ mod execute {
                 .unwrap();
 
                 let res = app.wrap().query_wasm_contract_info("contract1").unwrap();
-                assert_eq!(res.code_id, 2);
+                assert_eq!(res.code_id, 1);
                 assert_eq!(res.creator, cosmoswap_controller_addr);
                 assert_eq!(res.admin, None);
 
@@ -197,7 +189,7 @@ mod execute {
             #[test]
             fn test_invalid_user() {
                 let mut app = mock_app();
-                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
 
                 let swap_info = SwapInfo {
                     user1: ADMIN.to_string(),
@@ -235,7 +227,7 @@ mod execute {
             #[test]
             fn test_invalid_expiration() {
                 let mut app = mock_app();
-                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
 
                 let swap_info = SwapInfo {
                     user1: USER1.to_string(),
@@ -298,19 +290,11 @@ mod execute {
             #[test]
             fn test_happy_path() {
                 let mut app = mock_app();
-                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+                let cosmoswap_code_id = app.store_code(cosmoswap());
+                let cosmoswap_controller_addr =
+                    proper_instantiate(&mut app, cosmoswap_code_id, "0.05");
 
                 let cw20_addr = setup_cw20_token(&mut app);
-
-                let cosmoswap_code_id = app.store_code(cosmoswap());
-                let msg = ExecuteMsg::UpdateConfig { cosmoswap_code_id };
-                app.execute_contract(
-                    Addr::unchecked(ADMIN),
-                    cosmoswap_controller_addr.clone(),
-                    &msg,
-                    &vec![],
-                )
-                .unwrap();
 
                 let swap_info = SwapInfo {
                     user1: USER1.to_string(),
@@ -343,7 +327,7 @@ mod execute {
                 .unwrap();
 
                 let res = app.wrap().query_wasm_contract_info("contract2").unwrap();
-                assert_eq!(res.code_id, 3);
+                assert_eq!(res.code_id, 1);
                 assert_eq!(res.creator, cosmoswap_controller_addr);
                 assert_eq!(res.admin, None);
 
@@ -362,7 +346,7 @@ mod execute {
             #[test]
             fn test_invalid_user() {
                 let mut app = mock_app();
-                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
 
                 let cw20_addr = setup_cw20_token(&mut app);
 
@@ -406,7 +390,7 @@ mod execute {
             #[test]
             fn test_invalid_amount() {
                 let mut app = mock_app();
-                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
 
                 let cw20_addr = setup_cw20_token(&mut app);
 
@@ -454,7 +438,7 @@ mod execute {
             #[test]
             fn test_invalid_denom() {
                 let mut app = mock_app();
-                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
 
                 let cw20_addr = setup_cw20_token(&mut app);
 
@@ -502,7 +486,7 @@ mod execute {
             #[test]
             fn test_invalid_cw20_address() {
                 let mut app = mock_app();
-                let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
 
                 let cw20_addr = setup_cw20_token(&mut app);
 

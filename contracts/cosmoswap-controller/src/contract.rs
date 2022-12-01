@@ -3,8 +3,8 @@ use std::str::FromStr;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, ReplyOn,
-    Response, StdResult, SubMsg, Uint128, WasmMsg,
+    from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 
@@ -35,7 +35,7 @@ pub fn instantiate(
     // Save the code id cosmoswap contract instantiation
     let config = Config {
         admin: info.sender,
-        cosmoswap_code_id: 0,
+        cosmoswap_code_id: msg.cosmoswap_code_id,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -167,12 +167,7 @@ fn execute_create_swap(
             check_single_coin(&info, &swap_info.coin1.coin)?;
             SubMsg::new(wasm_msg)
         }
-        false => SubMsg {
-            msg: wasm_msg.into(),
-            id: INSTANTIATE_REPLY_ID,
-            gas_limit: None,
-            reply_on: ReplyOn::Success,
-        },
+        false => SubMsg::reply_on_success(wasm_msg, INSTANTIATE_REPLY_ID),
     };
 
     Ok(Response::new()
@@ -262,15 +257,11 @@ fn query_fee_config(deps: Deps, _env: Env) -> StdResult<FeeInfo> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     if msg.id != INSTANTIATE_REPLY_ID {
         return Err(ContractError::Unauthorized {});
     }
 
-    handle_instantiate_reply(deps, msg)
-}
-
-fn handle_instantiate_reply(_deps: DepsMut, msg: Reply) -> Result<Response, ContractError> {
     let res = msg.result.into_result();
     if res.is_err() {
         return Err(ContractError::SwapInstantiateError {});

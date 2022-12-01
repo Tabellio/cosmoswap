@@ -29,9 +29,10 @@ fn cosmoswap_controller() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-fn proper_instantiate(app: &mut App, fee_percentage: &str) -> Addr {
+fn proper_instantiate(app: &mut App, cosmoswap_code_id: u64, fee_percentage: &str) -> Addr {
     let code_id = app.store_code(cosmoswap_controller());
     let msg = InstantiateMsg {
+        cosmoswap_code_id,
         fee_percentage: Decimal::from_str(fee_percentage).unwrap(),
         fee_payment_address: Addr::unchecked(ADMIN).to_string(),
     };
@@ -55,6 +56,7 @@ mod instantiate {
 
         let code_id = app.store_code(cosmoswap_controller());
         let msg = InstantiateMsg {
+            cosmoswap_code_id: 2,
             fee_percentage: Decimal::from_str("0.05").unwrap(),
             fee_payment_address: Addr::unchecked(ADMIN).to_string(),
         };
@@ -89,7 +91,7 @@ mod execute {
         #[test]
         fn test_happy_path() {
             let mut app = mock_app();
-            let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+            let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
 
             let msg = ExecuteMsg::UpdateConfig {
                 cosmoswap_code_id: 2,
@@ -113,7 +115,7 @@ mod execute {
         #[test]
         fn test_invalid_admin() {
             let mut app = mock_app();
-            let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+            let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
 
             let msg = ExecuteMsg::UpdateConfig {
                 cosmoswap_code_id: 2,
@@ -139,7 +141,7 @@ mod execute {
         #[test]
         fn test_happy_path() {
             let mut app = mock_app();
-            let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+            let cosmoswap_controller_addr = proper_instantiate(&mut app, 2, "0.05");
 
             let msg = ExecuteMsg::UpdateFeeConfig {
                 fee_percentage: Decimal::from_str("0.1").unwrap(),
@@ -165,7 +167,7 @@ mod execute {
         #[test]
         fn test_invalid_admin() {
             let mut app = mock_app();
-            let cosmoswap_controller_addr = proper_instantiate(&mut app, "0.05");
+            let cosmoswap_controller_addr = proper_instantiate(&mut app, 2, "0.05");
 
             let msg = ExecuteMsg::UpdateFeeConfig {
                 fee_percentage: Decimal::from_str("0.1").unwrap(),
