@@ -3,8 +3,8 @@ use std::str::FromStr;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdResult, SubMsg, Uint128, WasmMsg,
+    from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply,
+    Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 
@@ -276,7 +276,7 @@ pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, Contract
     sub_msg_response.events.iter().for_each(|e| {
         if e.ty == "wasm" {
             e.attributes.iter().for_each(|attr| {
-                if attr.key == "_contract_addr" {
+                if attr.key == "_contract_address" {
                     contract_addr = attr.value.clone();
                 };
                 if attr.key == "coin1_cw20_address" {
