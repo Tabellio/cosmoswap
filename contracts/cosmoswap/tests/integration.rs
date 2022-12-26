@@ -181,6 +181,20 @@ mod native_token {
         let res = app.wrap().query_balance(ADMIN, DENOM2).unwrap();
         assert_eq!(res.amount, Uint128::new(250));
 
+        let msg = ExecuteMsg::Accept {};
+        let err = app
+            .execute_contract(
+                Addr::unchecked(USER2),
+                Addr::unchecked("contract1"),
+                &msg,
+                &vec![],
+            )
+            .unwrap_err();
+        assert_eq!(
+            err.source().unwrap().to_string(),
+            ContractError::SwapLocked {}.to_string()
+        );
+
         // Cancel the second swap
         let msg = ExecuteMsg::Cancel {};
         app.execute_contract(

@@ -99,6 +99,7 @@ pub fn execute_accept(
     if lock {
         return Err(ContractError::SwapLocked {});
     }
+    LOCK.save(deps.storage, &true)?;
 
     let swap = SWAP.load(deps.storage)?;
 
@@ -122,6 +123,11 @@ pub fn execute_cancel(
     if info.sender != swap.user1 {
         return Err(ContractError::Unauthorized {});
     };
+
+    let lock = LOCK.load(deps.storage)?;
+    if lock {
+        return Err(ContractError::SwapLocked {});
+    }
 
     _cancel(deps, swap)
 }
