@@ -225,6 +225,44 @@ mod execute {
             }
 
             #[test]
+            fn test_same_user() {
+                let mut app = mock_app();
+                let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");
+
+                let swap_info = SwapInfo {
+                    user1: USER1.to_string(),
+                    user2: USER1.to_string(),
+                    coin1: SwapCoin {
+                        is_native: true,
+                        coin: coin(1_000, DENOM1),
+                        cw20_address: None,
+                    },
+                    coin2: SwapCoin {
+                        is_native: true,
+                        coin: coin(5_000, DENOM2),
+                        cw20_address: None,
+                    },
+                };
+                let msg = ExecuteMsg::CreateSwap {
+                    swap_info,
+                    expiration: Expiration::Never {},
+                };
+
+                let err = app
+                    .execute_contract(
+                        Addr::unchecked(USER1),
+                        cosmoswap_controller_addr.clone(),
+                        &msg,
+                        &vec![coin(1_000, DENOM1)],
+                    )
+                    .unwrap_err();
+                assert_eq!(
+                    err.source().unwrap().to_string(),
+                    ContractError::SameUsers {}.to_string()
+                );
+            }
+
+            #[test]
             fn test_invalid_expiration() {
                 let mut app = mock_app();
                 let cosmoswap_controller_addr = proper_instantiate(&mut app, 1, "0.05");

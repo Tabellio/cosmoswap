@@ -142,9 +142,13 @@ fn execute_create_swap(
         return Err(ContractError::InvalidExpiration {});
     }
 
+    if swap_info.user1 == swap_info.user2 {
+        return Err(ContractError::SameUsers {});
+    };
+
     if swap_info.coin1.coin.denom == swap_info.coin2.coin.denom {
         return Err(ContractError::SameDenoms {});
-    }
+    };
 
     if swap_info.coin1.is_native {
         check_single_coin(&info, &swap_info.coin1.coin)?;
