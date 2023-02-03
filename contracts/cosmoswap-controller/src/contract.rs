@@ -280,7 +280,12 @@ pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, Contract
     sub_msg_response.events.iter().for_each(|e| {
         if e.ty == "wasm" {
             e.attributes.iter().for_each(|attr| {
-                if attr.key == "_contract_address" {
+                // On cw_multi_test contract address is _contract_addr
+                if cfg!(test) && attr.key == "_contract_address" {
+                    contract_addr = attr.value.clone();
+                };
+                // On real chain contract address is contract_address
+                if cfg!(not(test)) && attr.key == "_contract_addr" {
                     contract_addr = attr.value.clone();
                 };
                 if attr.key == "coin1_cw20_address" {
