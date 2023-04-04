@@ -7,6 +7,7 @@ use cosmwasm_std::{
     StdResult, SubMsg, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
+use cw_utils::parse_reply_instantiate_data;
 
 use cosmoswap::msg::InstantiateMsg as CosmoswapInstantiateMsg;
 use cosmoswap_packages::funds::{check_single_coin, FundsError};
@@ -266,48 +267,48 @@ pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, Contract
         return Err(ContractError::Unauthorized {});
     }
 
-    let res = msg.result.into_result();
-    if res.is_err() {
-        return Err(ContractError::SwapInstantiateError {});
-    };
+    let reply_data = parse_reply_instantiate_data(msg.clone());
 
-    let sub_msg_response = res.unwrap();
+    match reply_data {
+        Ok(reply_data) => {
+            let res = msg.result.into_result();
+            if res.is_err() {
+                return Err(ContractError::SwapInstantiateError {});
+            };
 
-    let mut contract_addr = String::from("");
-    let mut coin1_cw20_addr = String::from("");
-    let mut amount = Uint128::zero();
+            let sub_msg_response = res.unwrap();
 
-    sub_msg_response.events.iter().for_each(|e| {
-        if e.ty == "wasm" {
-            e.attributes.iter().for_each(|attr| {
-                // On cw_multi_test contract address is _contract_addr
-                if cfg!(test) && attr.key == "_contract_address" {
-                    contract_addr = attr.value.clone();
-                };
-                // On real chain contract address is contract_address
-                if cfg!(not(test)) && attr.key == "_contract_addr" {
-                    contract_addr = attr.value.clone();
-                };
-                if attr.key == "coin1_cw20_address" {
-                    coin1_cw20_addr = attr.value.clone();
-                };
-                if attr.key == "coin1_amount" {
-                    amount = Uint128::from_str(&attr.value).unwrap();
-                };
+            let mut coin1_cw20_addr = String::from("");
+            let mut amount = Uint128::zero();
+
+            sub_msg_response.events.iter().for_each(|e| {
+                if e.ty == "wasm" {
+                    e.attributes.iter().for_each(|attr| {
+                        if attr.key == "coin1_cw20_address" {
+                            coin1_cw20_addr = attr.value.clone();
+                        };
+                        if attr.key == "coin1_amount" {
+                            amount = Uint128::from_str(&attr.value).unwrap();
+                        };
+                    });
+                }
             });
+
+            let msg = WasmMsg::Execute {
+                contract_addr: coin1_cw20_addr,
+                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                    recipient: reply_data.contract_address,
+                    amount,
+                })?,
+                funds: vec![],
+            };
+
+            Ok(Response::new()
+                .add_message(msg)
+                .add_attribute("action", "cosmoswap_instantiate_reply"))
         }
-    });
-
-    let msg = WasmMsg::Execute {
-        contract_addr: coin1_cw20_addr,
-        msg: to_binary(&Cw20ExecuteMsg::Transfer {
-            recipient: contract_addr,
-            amount,
-        })?,
-        funds: vec![],
-    };
-
-    Ok(Response::new()
-        .add_message(msg)
-        .add_attribute("action", "cosmoswap_instantiate_reply"))
+        Err(_) => {
+            return Err(ContractError::SwapInstantiateError {});
+        }
+    }
 }
